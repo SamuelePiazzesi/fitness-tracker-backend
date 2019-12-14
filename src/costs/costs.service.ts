@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Cost } from './cost.model';
 import * as uuid from 'uuid/v1';
 import { CreateCostDto } from './dto/create-cost.dto';
 import * as _ from 'lodash';
 import { EditCostDto } from './dto/edit-cost.dto';
+import { GetCostsFilterDto } from './dto/get-costs-filter.dto';
 
 @Injectable()
 export class CostsService {
@@ -13,6 +14,23 @@ export class CostsService {
     return this.costs;
   }
 
+  getCostsWithFilter(getCostsFilterDto: GetCostsFilterDto): Cost[] {
+    const { category, search } = getCostsFilterDto;
+    let costs = this.getAllCosts();
+
+    if (category) {
+      costs = _.filter(costs, (c) => c.category === category.toUpperCase());
+    }
+    if (search) {
+      costs = _.filter(
+        costs,
+        (c) => c.title.includes(search) || c.description.includes(search)
+      );
+    }
+
+    return costs;
+  }
+
   createCost(createCostDto: CreateCostDto): Cost {
     const { title, description, value, category } = createCostDto;
     const cost: Cost = {
@@ -20,14 +38,18 @@ export class CostsService {
       title,
       description,
       value,
-      category,
+      category
     };
     this.costs.push(cost);
     return cost;
   }
 
   getCostById(id: string): Cost {
-    return _.find(this.costs, ['id', id]);
+    const cost = _.find(this.costs, ['id', id]);
+    if (!cost) {
+      throw new NotFoundException();
+    }
+    return cost;
   }
 
   editCostById(id: string, editCostDto: EditCostDto): Cost {
@@ -42,6 +64,7 @@ export class CostsService {
   }
 
   deleteCostById(id: string): void {
-    this.costs = _.remove(this.costs, (cost: { id: string }) => cost.id === id);
+    const cost = this.getCostById(id);
+    this.costs = _.remove(this.costs, (c) => c.id === cost.id);
   }
 }
